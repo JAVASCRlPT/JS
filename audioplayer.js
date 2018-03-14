@@ -1,258 +1,257 @@
-var AudioModel = function (_song) {
-  var isPlaying = false;
-  var song = _song;
-  
-  var a = {};
-  
-  a.getSong = function() {
-    return song;
-  };
-  
-  a.currentTime = function() {
-    return song.currentTime;
-  };
-  
-  a.duration = function() {
-    return song.duration;
-  };
-  
-  a.setTime = function(time) {
-    song.currentTime = time;
-  };
-  
-  a.play = function() {
-    isPlaying = true;
-    song.play();
-  };
-  
-  a.pause = function() {
-    isPlaying = false;
-    song.pause();
-  };
-  
-  a.playing = function() {
-    return isPlaying;
-  };
-  
-  a.getLoop = function() {
-    return song.loop;
-  };
-  
-  a.setLoop = function(loop) {
-    song.loop = loop;
-  };
-  
-  a.setVolume = function(vol) {
-    song.volume = vol;
-  };
-  
-  a.getVolume = function() {
-    return song.volume;
-  };
-  
-  a.seekTo = function(time) {
-    song.currentTime = time;
-  };
-  
-  var reset = function() {
-    if (!song.loop) {
-      a.seekTo(0);
-      a.pause();
-    }
-  };
-  
-  song.addEventListener("ended", function(event) { reset() }, false);
-  
-  return a;
-}(document.getElementById("song"));
+/* Music 
+======================================*/
+var playlist = [
+	{
+		"song"    : "House of the Rising Sun",
+		"album"   : "The Animals",
+		"artist"  : "The Animals",
+		"artwork" : "http://upload.wikimedia.org/wikipedia/en/thumb/a/a8/Rising_sun_animals_US.jpg/220px-Rising_sun_animals_US.jpg",
+		"mp3"     : "http://retro-disko.ru/6/music/016.mp3"
+	},
+	{
+		"song"    : "Superstition",
+		"album"   : "Talking Book",
+		"artist"  : "Stevie Wonder",
+		"artwork" : "https://i.imgur.com/Py4XcBT.png",
+		"mp3"     : "http://vocaroo.com/media_command.php?media=s1WYNvqulYH9&command=download_mp3"
+	},
+	{
+		"song"    : "I Need You Back",
+		"album"   : "Premiere",
+		"artist"  : "The Noisy Freaks",
+		"artwork" : "http://i1285.photobucket.com/albums/a583/TheGreatOzz1/Hosted-Images/Noisy-Freeks-Image_zps4kilrxml.png",
+		"mp3"     : "http://kirkbyo.net/Assets/The-Noisy-Freaks.mp3"
+	}
+];
 
-var AudioView = function(model) {
-  var playBtn = document.getElementById("play");
-  var currentTime = document.getElementById("currentTime");
-  var totalTime = document.getElementById("totalTime");
-  var seekBg = document.getElementById("seek");
-  var seekHolder = document.getElementById("seekHolder");
-  var seekFill = document.getElementById("seekFill");
-  var seekDrag = document.getElementById("seekDrag");
-  var volumeIcon = document.getElementById("volumeIcon");
-  var loopIcon = document.getElementById("loopIcon");
-  var timeLabel = document.getElementById("timeLabel");
-  
-  var formatTime = function(i) {
-    var minutes = Math.floor(i/60);
-    var seconds = Math.floor(i%60);
-    return ((minutes < 10) ? ("0" + minutes) : minutes) + ":" + ((seconds < 10) ? ("0" + seconds) : seconds);
-  };
-  
-  var play = function() {
-    playBtn.innerHTML = "<i class='icon-pause'></i>";
-  };
-  
-  var pause = function() {
-    pauseBtn.innerHTML = "<i class='icon-play'></i>";
-  };
-  
-  var updateTime = function() {
-    currentTime.innerHTML = formatTime(model.currentTime());
-    timeLabel.innerHTML = currentTime.innerHTML;
-    if (Math.round((1-(model.currentTime()/model.duration()))*(seekBg.offsetWidth))+3<timeLabel.offsetWidth/2) {
-      timeLabel.style.left = (seekHolder.offsetWidth-timeLabel.offsetWidth) + "px";
-    } else if (Math.round(((model.currentTime()/model.duration()))*(seekBg.offsetWidth)+3)<timeLabel.offsetWidth/2) {
-      timeLabel.style.left="0px";
-    } else {
-      timeLabel.style.left = Math.round(((model.currentTime()/model.duration()))*(seekBg.offsetWidth)+3-timeLabel.offsetWidth/2) + "px";
-    }
-    seekFill.style.width = Math.round((model.currentTime()/model.duration())*(seekBg.offsetWidth-2))+"px";
-    seekDrag.style.left = Math.round((model.currentTime()/model.duration())*(seekBg.offsetWidth-2))+"px";
-  };
-  
-  var updateVolume = function() {
-    if (model.getVolume() === 0) {
-      volumeIcon.className = "icon-volume-off";
-    } else if (Math.round(model.getVolume()) === 0) {
-      volumeIcon.className = "icon-volume-down";
-    } else {
-      volumeIcon.className = "icon-volume-up";
-    }
-  };
-  
-  var a = {};
-  
-  var timeProxy = function(event) {
-    updateTime(this);
+/* General Load / Variables
+======================================*/
+var rot = 0;
+var duration;
+var playPercent;
+var rotate_timer;
+var armrot = -45;
+var bufferPercent;
+var currentSong = 0;
+var arm_rotate_timer;
+var arm = document.getElementById("arm");
+var next = document.getElementById("next");
+var song = document.getElementById("song");
+var timer = document.getElementById("timer");
+var music = document.getElementById("music");
+var album = document.getElementById("album");
+var artist = document.getElementById("artist");
+var volume = document.getElementById("volume");
+var playButton = document.getElementById("play");
+var timeline = document.getElementById("slider");
+var playhead = document.getElementById("elapsed");
+var previous = document.getElementById("previous");
+var pauseButton = document.getElementById("pause");
+var bufferhead = document.getElementById("buffered");
+var artwork = document.getElementsByClassName("artwork")[0];
+var timelineWidth = timeline.offsetWidth - playhead.offsetWidth;
+var visablevolume = document.getElementsByClassName("volume")[0];
+
+music.addEventListener("ended", _next, false);
+music.addEventListener("timeupdate", timeUpdate, false);
+music.addEventListener("progress", 	bufferUpdate, false);
+load();
+
+/* Functions
+======================================*/
+function load(){
+	pauseButton.style.visibility = "hidden";
+	song.innerHTML = playlist[currentSong]['song'];
+	song.title = playlist[currentSong]['song'];
+	album.innerHTML = playlist[currentSong]['album'];
+	album.title = playlist[currentSong]['album'];
+	artist.innerHTML = playlist[currentSong]['artist'];
+	artist.title = playlist[currentSong]['artist'];
+	artwork.setAttribute("style", "background:url(https://i.imgur.com/3idGgyU.png), url('"+playlist[currentSong]['artwork']+"') center no-repeat;");
+	music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	music.load();
+}
+function reset(){ 
+	rotate_reset = setInterval(function(){ 
+		Rotate();
+		if(rot == 0){
+			clearTimeout(rotate_reset);
+		}
+	}, 1);
+	fireEvent(pauseButton, 'click');
+	armrot = -45;
+	playhead.style.width = "0px";
+	bufferhead.style.width = "0px";
+	timer.innerHTML = "0:00";
+	music.innerHTML = "";
+	currentSong = 0; // set to first song, to stay on last song: currentSong = playlist.length - 1;
+	song.innerHTML = playlist[currentSong]['song'];
+	song.title = playlist[currentSong]['song'];
+	album.innerHTML = playlist[currentSong]['album'];
+	album.title = playlist[currentSong]['album'];
+	artist.innerHTML = playlist[currentSong]['artist'];
+	artist.title = playlist[currentSong]['artist'];
+	artwork.setAttribute("style", "background:url(https://i.imgur.com/3idGgyU.png), url('"+playlist[currentSong]['artwork']+"') center no-repeat;");
+	music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	music.load();
+}
+function formatSecondsAsTime(secs, format) {
+  var hr  = Math.floor(secs / 3600);
+  var min = Math.floor((secs - (hr * 3600))/60);
+  var sec = Math.floor(secs - (hr * 3600) -  (min * 60));
+  if (sec < 10){ 
+    sec  = "0" + sec;
   }
-
-  a.updateLoop = function() {
-    if (model.getLoop()) {
-      loopIcon.className = "icon-refresh icon-flip-horizontal";
-    } else {
-      loopIcon.className = "icon-ban-circle";
-    }
-  };
-  
-  a.listen = function() {
-    model.getSong().addEventListener("timeupdate", timeProxy, false);
-  };
-  
-  a.stopListening = function() {
-    model.getSong().removeEventListener("timeupdate", timeProxy, false);
-  }
-  
-  a.dragSeek = function(mousePos) {
-    var dragTime = (mousePos.x/seekBg.offsetWidth)*model.duration();
-    timeLabel.innerHTML = formatTime(dragTime);
-    if (Math.round((1-(dragTime/model.duration()))*(seekBg.offsetWidth))+3<timeLabel.offsetWidth/2) {
-      timeLabel.style.left = (seekHolder.offsetWidth-timeLabel.offsetWidth) + "px";
-    } else if (Math.round(((dragTime/model.duration()))*(seekBg.offsetWidth)+3)<timeLabel.offsetWidth/2) {
-      timeLabel.style.left="0px";
-    } else {
-      timeLabel.style.left = Math.round(((dragTime/model.duration()))*(seekBg.offsetWidth)+3-timeLabel.offsetWidth/2) + "px";
-    }
-    seekFill.style.width = Math.round((dragTime/model.duration())*(seekBg.offsetWidth-2))+"px";
-    seekDrag.style.left = Math.round((dragTime/model.duration())*(seekBg.offsetWidth-2))+"px";
-  };
-  
-  var init = function() {
-    totalTime.innerHTML = formatTime(song.duration);
-    
-    if (this.autoPlay) {
-      this.play();
-    }
-    model.getSong().addEventListener("play", function(event) { play(); }, false);
-    model.getSong().addEventListener("pause", function(event) { pause(); }, false);
-    model.getSong().addEventListener("ended", function(event) { if (!model.loop()) pause(); }, false);
-    model.getSong().addEventListener("volumechange", function(event) { updateVolume(); }, false);
-    a.listen();
-  };
-  
-  model.getSong().addEventListener("canplaythrough", function(event) { init(); }, false);
-  
-  return a;
-}(AudioModel);
-
-var AudioControl = function(model, view) {
-  var playBtn = document.getElementById("play");
-  var seekBg = document.getElementById("seek");
-  var seekHolder = document.getElementById("seekHolder");
-  var seekFill = document.getElementById("seekFill");
-  var seekDrag = document.getElementById("seekDrag");
-  var muteBtn = document.getElementById("mute");
-  var volumeIcon = document.getElementById("volumeIcon");
-  var loopBtn = document.getElementById("loop");
-  var loopIcon = document.getElementById("loopIcon");
-  var timeLabel = document.getElementById("timeLabel");
-  
-  var togglePlay = function(event) {
-    event.preventDefault();
-    if (model.playing()) {
-      model.pause();
-    } else {
-      model.play();
-    }
-  };
-  
-  var toggleLoop = function(event) {
-    event.preventDefault();
-    model.setLoop(!model.getLoop());
-    view.updateLoop();
-  };
-  
-  var toggleVolume = function(event) {
-    event.preventDefault();
-    if (model.getVolume()==1) {
-      model.setVolume(0.49);
-    } else if (model.getVolume()==0.49) {
-      model.setVolume(0);
-    } else {
-      model.setVolume(1);
-    }
-  };
-  
-  var getMousePos = function(evt, element) {
-    var rect = element.getBoundingClientRect();
-    var root = document.documentElement;
-    
-    var mouseX = evt.clientX - rect.left - root.scrollLeft;
-    var mouseY = evt.clientY - rect.top - root.scrollTop;
-    
-    return {x:mouseX, y:mouseY};
-  };
-  
-  var startSeek = function(event) {
-    event.preventDefault();
-    view.stopListening();
-    document.addEventListener("mousemove", seekProxy, false);
-    document.addEventListener("mouseup", endSeekProxy, false);
-  };
-  
-  var seekProxy = function(event) {
-    seek(event);
-  };
-  
-  var endSeekProxy = function(event) {
-    endSeek(event);
-  };
-  
-  var seek = function(event) {
-    event.preventDefault();
-    view.dragSeek(getMousePos(event, seekBg));
-  };
-  
-  var endSeek = function(event) {
-    event.preventDefault();
-    view.listen();
-    document.removeEventListener("mousemove", seekProxy, false);
-    document.removeEventListener("mouseup", endSeekProxy, false);
-    var mousePos = getMousePos(event, seekBg);
-    model.seekTo((mousePos.x/seekBg.offsetWidth)*model.duration());
-  };
-  
-  playBtn.addEventListener("click", function(event) { togglePlay(event); }, false);
-  loopBtn.addEventListener("click", function(event) { toggleLoop(event); }, false);
-  muteBtn.addEventListener("click", function(event) { toggleVolume(event); }, false);
-  seekBg.addEventListener("mousedown", function(event) { startSeek(event); }, false);
-  seekFill.addEventListener("mousedown", function(event) { startSeek(event); }, false);
-  seekDrag.addEventListener("mousedown", function(event) { startSeek(event); }, false);
-  
-  return {};
-}(AudioModel, AudioView);
+  return min + ':' + sec;
+}
+function timeUpdate() {
+	bufferUpdate();
+	playPercent = timelineWidth * (music.currentTime / duration);
+	playhead.style.width = playPercent + "px";
+	timer.innerHTML = formatSecondsAsTime(music.currentTime.toString());
+}
+function bufferUpdate() {
+	bufferPercent = timelineWidth * (music.buffered.end(0) / duration);
+	bufferhead.style.width = bufferPercent + "px";
+}
+function Rotate(){
+	if(rot == 361){
+		artwork.style.transform = 'rotate(0deg)';
+		rot = 0;
+	} else {
+		artwork.style.transform = 'rotate('+rot+'deg)';
+		rot++;
+	}
+}
+function RotateArm(){
+	if(armrot > -12){
+		arm.style.transform = 'rotate(-38deg)';
+		armrot = -45;
+	} else {
+		arm.style.transform = 'rotate('+armrot+'deg)';
+		armrot = armrot + (26 / duration);
+	}
+}
+function fireEvent(el, etype){
+	if (el.fireEvent) {
+		el.fireEvent('on' + etype);
+	} else {
+		var evObj = document.createEvent('Events');
+		evObj.initEvent(etype, true, false);
+		el.dispatchEvent(evObj);
+	}
+}
+function _next(){
+	if(currentSong == playlist.length - 1){
+		reset();
+	} else {
+		fireEvent(next, 'click');
+	}
+}
+playButton.onclick = function() {
+	music.play();
+}
+pauseButton.onclick = function() {
+	music.pause();
+}
+music.addEventListener("play", function () {
+	playButton.style.visibility = "hidden";
+	pause.style.visibility = "visible";
+	rotate_timer = setInterval(function(){ 
+		if(!music.paused && !music.ended && 0 < music.currentTime){
+			Rotate();
+		}
+	}, 10);	
+	if(armrot != -45){
+		arm.setAttribute("style", "transition: transform 800ms;");
+		arm.style.transform = 'rotate('+armrot+'deg)';
+	}
+	arm_rotate_timer = setInterval(function(){ 
+		if(!music.paused && !music.ended && 0 < music.currentTime){
+			if(armrot == -45){
+				arm.setAttribute("style", "transition: transform 800ms;");
+				arm.style.transform = 'rotate(-38deg)';
+				armrot = -38;
+			}
+			if(arm.style.transition != ""){
+				setTimeout(function(){
+					arm.style.transition = "";
+				}, 1000);
+			}
+			RotateArm();
+		}
+	}, 1000);
+}, false);
+music.addEventListener("pause", function () {
+	arm.setAttribute("style", "transition: transform 800ms;");
+	arm.style.transform = 'rotate(-45deg)';
+	playButton.style.visibility = "visible";
+	pause.style.visibility = "hidden";
+	clearTimeout(rotate_timer);
+	clearTimeout(arm_rotate_timer);
+}, false);
+next.onclick = function(){
+	arm.setAttribute("style", "transition: transform 800ms;");
+	arm.style.transform = 'rotate(-45deg)';
+	clearTimeout(rotate_timer);
+	clearTimeout(arm_rotate_timer);
+	playhead.style.width = "0px";
+	bufferhead.style.width = "0px";
+	timer.innerHTML = "0:00";
+	music.innerHTML = "";
+	arm.style.transform = 'rotate(-45deg)';
+	armrot = -45;
+	if((currentSong + 1) == playlist.length){
+		currentSong = 0;
+		music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	} else {
+		currentSong++;
+		music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	}
+	song.innerHTML = playlist[currentSong]['song'];
+	song.title = playlist[currentSong]['song'];
+	album.innerHTML = playlist[currentSong]['album'];
+	album.title = playlist[currentSong]['album'];
+	artist.innerHTML = playlist[currentSong]['artist'];
+	artist.title = playlist[currentSong]['artist'];
+	artwork.setAttribute("style", "transform: rotate("+rot+"deg); background:url(https://i.imgur.com/3idGgyU.png), url('"+playlist[currentSong]['artwork']+"') center no-repeat;");
+	music.load();
+	duration = music.duration;
+	music.play();
+}
+previous.onclick = function(){
+	arm.setAttribute("style", "transition: transform 800ms;");
+	arm.style.transform = 'rotate(-45deg)';
+	clearTimeout(rotate_timer);
+	clearTimeout(arm_rotate_timer);
+	playhead.style.width = "0px";
+	bufferhead.style.width = "0px";
+	timer.innerHTML = "0:00";
+	music.innerHTML = "";
+	arm.style.transform = 'rotate(-45deg)';
+	armrot = -45;
+	if((currentSong - 1) == -1){
+		currentSong = playlist.length - 1;
+		music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	} else {
+		currentSong--;
+		music.innerHTML = '<source src="'+playlist[currentSong]['mp3']+'" type="audio/mp3">';
+	}
+	song.innerHTML = playlist[currentSong]['song'];
+	song.title = playlist[currentSong]['song'];
+	album.innerHTML = playlist[currentSong]['album'];
+	album.title = playlist[currentSong]['album'];
+	artist.innerHTML = playlist[currentSong]['artist'];
+	artist.title = playlist[currentSong]['artist'];
+	artwork.setAttribute("style", "transform: rotate("+rot+"deg); background:url(https://i.imgur.com/3idGgyU.png), url('"+playlist[currentSong]['artwork']+"') center no-repeat;");
+	music.load();
+	duration = music.duration;
+	music.play();
+}
+volume.oninput = function(){
+	music.volume = volume.value;
+	visablevolume.style.width = (80 - 11) * volume.value + "px";
+}
+music.addEventListener("canplay", function () {
+	duration = music.duration;
+}, false);
