@@ -1,50 +1,40 @@
-// =====	Audio Player JS ===== //
+var nyan = document.getElementById('nyan');
+var nyanBtn = document.getElementById('nyan-btn');
 
-$('audio').each(function() {
+function playPause(song){
+   if (song.paused && song.currentTime >= 0 && !song.ended) {
+      song.play();
+   } else {
+      song.pause();
+   }
+}
 
-  $(this).on("ended", function() {
-    this.play();
-  }, false);
+function reset(btn, song){
+   if(btn.classList.contains('playing')){
+      btn.classList.toggle('playing');
+   }
+   song.pause();
+   song.currentTime = 0;
+}
 
-  // Audio Duration Timers
+function progress(btn, song){
+   setTimeout(function(){
+      var end = song.duration; 
+      var current = song.currentTime;
+      var percent = current/(end/100);
+      //check if song is at the end
+      if(current==end){
+         reset(btn, song);
+      }
+      //set inset box shadow
+      btn.style.boxShadow = "inset " + btn.offsetWidth * (percent/100) + "px 0px 0px 0px rgba(0,0,0,0.125)"
+      //call function again
+      progress(btn, song);     
+   }, 133.7);
+}
 
-  $(this).on("canplay", function() {
-    var s = parseInt(this.duration % 60);
-    s = ('0' + s).slice(-2);
-    var m = parseInt((this.duration / 60) % 60);
-    $(this).siblings('.progress-wrap').find(".audio-length").text(m + ':' + s);
-    console.log(this.duration);
-  });
-
-  $(this).on("timeupdate", function() {
-    var s = parseInt(this.currentTime % 60);
-    s = ('0' + s).slice(-2);
-    var m = parseInt((this.currentTime / 60) % 60);
-    $(this).siblings('.progress-wrap').find(".audio-current-time").text(m + ':' + s);
-  });
-
-  // Audio Progress Bar
-
-  $(this).on('timeupdate', function() {
-    var currentTime = this.currentTime;
-    var duration = this.duration;
-    $(this).siblings('.progress-wrap').find('.audio-seekbar .audio-slide').animate({
-      'width': (currentTime) / duration * 100 + '%'
-    }, 250, 'linear');
-  });
-
-  // Play/Pause Audio
-
-  $(this).siblings('.button-wrap').find('.audio-play').on("click", function() {
-    if (!$(this).parents().siblings('audio')[0].paused) {
-      $(this).parents().siblings('audio')[0].pause();
-      $(this).removeClass('playing');
-    } else {
-      $(this).parents().siblings('audio')[0].play();
-      $(this).addClass('playing');
-      $(this).parents().siblings('.progress-wrap').find('.audio-title').css('opacity', '0');
-      $(this).parents().siblings('.progress-wrap').find('.audio-seekbar').css('opacity', '1.0');
-    }
-  });
-
+nyanBtn.addEventListener('click', function(){
+   nyanBtn.classList.toggle('playing');
+   playPause(nyan);
+   progress(nyanBtn, nyan);
 });
